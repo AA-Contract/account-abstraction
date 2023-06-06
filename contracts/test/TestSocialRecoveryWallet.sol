@@ -21,21 +21,20 @@ contract TestSocialRecovryWallet is SimpleAccount {
 	}
 
 	function registerGuardian(address[] memory guardians, uint8 _threshold) external onlyOwner {
-		require(guardians.length <= recoveryToken.maxSupply(), "exceeds max supply");
+		require(guardians.length <= recoveryToken.getMaxSupply(), "exceeds max supply");
 		require(threshold <= guardians.length, "Threshold exceeds guardians count");
         require(threshold >= 2, "At least 2 friends required");
 		threshold = _threshold;
 		for (uint256 i = 0; i < guardians.length; i++) {
 			require(guardians[i] != address(this), "Invalid wallet guardian");
-			recoveryToken.setQualification(guardians[i]);
+			recoveryToken.mint(guardians[i]);
 		}
 	}
 
 	function deleteGuardian(address[] memory _guardians) external onlyOwner {
-		address[] guardians = recoveryToken._guardians();
-		require(threshold <= guardians.length - _guardians.length, "Threshold exceeds guardians count");
-		for (uint256 i = 0; i < guardians.length; i++) {
-			recoveryToken.deleteQualification(guardians[i]);
+		require(threshold <= recoveryToken.getTotalSupply() - _guardians.length, "Threshold exceeds guardians count");
+		for (uint256 i = 0; i < _guardians.length; i++) {
+			recoveryToken.burn(_guardians[i], false);
 		}
 	}
 
@@ -43,7 +42,7 @@ contract TestSocialRecovryWallet is SimpleAccount {
 		require(recoveryToken.balanceOf(address(this), newOwner) > threshold, "Not enough confirmations");
 		_setOwner(newOwner);
 		//recoveryToken.updateNonce();
-		recoveryToken.updateNonceAndRecordRecovery();
+		recoveryToken.updateNonceAndRecordRecovery(newOwner);
 	}
 	
 	function setGuardianMaxSupply(uint8 max) onlyOwner external {
@@ -54,6 +53,6 @@ contract TestSocialRecovryWallet is SimpleAccount {
 		recoveryToken.setTimeInterval(time);
 	}
 	function _setOwner(address newOwner) onlyOwner internal {
-		owner = anOwner;
+		owner = newOwner;
 	}
 }
