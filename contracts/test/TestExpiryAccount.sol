@@ -13,33 +13,11 @@ import "../samples/SimpleAccount.sol";
 contract TestExpiryAccount is SimpleAccount {
     using ECDSA for bytes32;
 
-    struct TokenApproval {
-	bool enable;
-	uint256 amount;
-    }
-
-    struct PermissionParam {
-        address whitelistDestination;
-        bytes4[] whitelistMethods;
-        uint256 tokenAmount;
-    }
-    
-    struct PermissionStorage {
-	address[] whitelistDestinations;
-	mapping(address => bool) whitelistDestinationMap;
-	mapping(address => bytes4[]) whitelistMethods;
-	mapping(address => mapping(bytes4 => bool)) whitelistMethodsMap;
-	mapping(address => TokenApproval) tokenApprovals; // TokenApproval[] 로 변경?
-    }
-
-    mapping(address => PermissionStorage) internal permissionMap;
-
     mapping(address => uint48) public ownerAfter;
     mapping(address => uint48) public ownerUntil;
 
     // solhint-disable-next-line no-empty-blocks
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
-
 
     function initialize(address anOwner) public virtual override initializer {
         super._initialize(anOwner);
@@ -50,33 +28,10 @@ contract TestExpiryAccount is SimpleAccount {
     // solhint-disable-next-line no-empty-blocks
     function _disableInitializers() internal override {}
 
-    function addTemporaryOwner(address owner, uint48 _after, uint48 _until, PermissionParam[] calldata permissions) public onlyOwner {
+    function addTemporaryOwner(address owner, uint48 _after, uint48 _until) public onlyOwner {
         require(_until > _after, "wrong until/after");
         ownerAfter[owner] = _after;
         ownerUntil[owner] = _until;
-	
-	PermissionStorage storage _permissionStorage = permissionMap[owner];
-	address[] memory whitelistAddresses = new address[] (permissions.length);
-	
-	for (uint256 index = 0; index < permissions.length; index++) {
-	    PermissionParam memory permission = permissions[index];
-	    address whitelistedDestination = permission.whitelistDestination;
-	    whitelistAddresses[index] = whitelistedDestination;
-
-	    _permissionStorage.whitelistDestinationMap[whitelistedDestination] = true;
-	    _permissionStorage.whitelistMethods[whitelistedDestination] = permission.whitelistedMethods;
-
-	    for (uint256 methodIndex = 0; methodIndex < permission.whitelistMethods.length; methodIndex++) {
-		_permissionStorage.whitelistMethodsMap[whitelistedDestination] [
-		        permission.whitelistMethods[methodIndex]
-		    ] = true;
-	    }
-
-	    if (permission.tokenAmount > 0) {
-		_permissionStorage.tokenApprovals[whitelistedDestination] = TokenApproval({enable: true, amount: permission.tokenAmount});
-	    }
-	}
-	_permissionStorage.whitelistDestinations = whitelistAddresses;
     }
 
     /// implement template method of BaseAccount
