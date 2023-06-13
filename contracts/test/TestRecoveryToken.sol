@@ -30,7 +30,7 @@ contract TestRecoveryToken {
 		TIME_INTERVAL = timeInterval;
 	}
 	function mint(address account) external onlyReceiver { 
-		require(_guardiansInfo.length <= _maxSupply, "maximum guardians");
+		require(_guardiansInfo.length + 1 <= _maxSupply, "exceed maximum guardians");
         require(_isGuardian(account) > _maxSupply, "duplicate guardians");
 		
         _guardiansInfo.push(GuardianInfo(account, block.timestamp, 0));
@@ -64,12 +64,12 @@ contract TestRecoveryToken {
 	}
 
 	function confirmReocvery(address newOwner) external {
-        uint256 index = _isGuardian(newOwner);
+        uint256 index = _isGuardian(msg.sender);
 		require(index <= _maxSupply, "caller not a guardian");
-		require(_guardiansInfo[index].registeredTime + TIME_INTERVAL < block.timestamp, "invalid guardian");
+		require(_guardiansInfo[index].registeredTime + TIME_INTERVAL < block.timestamp, "have to pass 1 day at least");
 		require(
 			_guardiansInfo[index].deletedTime == 0 || _guardiansInfo[index].deletedTime + TIME_INTERVAL > block.timestamp, 
-			"invalid guardian"
+			"expired guardian"
 		);
 		bytes32 recoveryHash = getRecoveryHash(newOwner, nonce);
         require(!_confirm[msg.sender][recoveryHash], "already confirm");
@@ -88,6 +88,9 @@ contract TestRecoveryToken {
     }
 	function getMaxSupply() external view returns (uint8) {
       return _maxSupply;
+    }
+	function getNonce() external view returns (uint256) {
+      return nonce;
     }
 	function balanceOf(address account, address newOwner) external view returns (uint256) {
 		return _balances[account][getRecoveryHash(newOwner, nonce)];

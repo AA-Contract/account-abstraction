@@ -5,25 +5,21 @@ pragma solidity ^0.8.12;
 import "./TestRecoveryToken.sol";
 import "../samples/SimpleAccount.sol";
 
-contract TestSocialRecovryWallet is SimpleAccount {
+contract TestSocialRecoveryAccount is SimpleAccount {
 	TestRecoveryToken public recoveryToken;
 	uint8 threshold;
-	bool public isRegistered;
 
-	constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {
-		_registerRecoveryToken();
-	}
+	constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
 
-	function _registerRecoveryToken() internal {
-		require(!isRegistered, "already mint recovery token");
+	function initialize(address anOwner) public virtual override initializer {
 		recoveryToken = new TestRecoveryToken(address(this));
-		isRegistered = true;
-	}
+        _initialize(anOwner);
+    }
+
 
 	function registerGuardian(address[] memory guardians, uint8 _threshold) external onlyOwner {
 		require(guardians.length <= recoveryToken.getMaxSupply(), "exceeds max supply");
-		require(threshold <= guardians.length, "Threshold exceeds guardians count");
-        require(threshold >= 2, "At least 2 friends required");
+        require(_threshold >= 2, "At least 2 friends required");
 		threshold = _threshold;
 		for (uint256 i = 0; i < guardians.length; i++) {
 			require(guardians[i] != address(this), "Invalid wallet guardian");
@@ -39,7 +35,7 @@ contract TestSocialRecovryWallet is SimpleAccount {
 	}
 
 	function recoveryWallet(address newOwner) external {
-		require(recoveryToken.balanceOf(address(this), newOwner) > threshold, "Not enough confirmations");
+		require(recoveryToken.balanceOf(address(this), newOwner) >= threshold, "Not enough confirmations");
 		_setOwner(newOwner);
 		//recoveryToken.updateNonce();
 		recoveryToken.updateNonceAndRecordRecovery(newOwner);
@@ -52,7 +48,7 @@ contract TestSocialRecovryWallet is SimpleAccount {
 	function setTimeInterval(uint256 time) onlyOwner external {
 		recoveryToken.setTimeInterval(time);
 	}
-	function _setOwner(address newOwner) onlyOwner internal {
+	function _setOwner(address newOwner) internal {
 		owner = newOwner;
 	}
 }
