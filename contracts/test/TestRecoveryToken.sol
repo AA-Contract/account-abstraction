@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.12;
 
+
 contract TestRecoveryToken {
     uint256 nonce; // 32 bytes
 	uint256 public TIME_INTERVAL = 86400; // 1 days, default, 32 bytes
