@@ -28,11 +28,6 @@ contract TestSocialRecoveryAccount is SimpleAccount {
 	}
 
 	function deleteGuardian(address[] memory _guardians) external onlyOwner {
-		for (uint256 i = 0; i < _guardians.length; i++) {
-			require(recoveryToken._isGuardian(_guardians[i]) > recoveryToken.getMaxSupply(),
-			"not a guardian");
-		} //.
-
 		require(threshold <= recoveryToken.getTotalSupply() - _guardians.length, "Threshold exceeds guardians count");
 		for (uint256 i = 0; i < _guardians.length; i++) {
 			recoveryToken.burn(_guardians[i], false);
