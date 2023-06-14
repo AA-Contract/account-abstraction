@@ -170,7 +170,7 @@ describe("SocialRecovery", function () {
 
     it("should revert before delete time delay", async() => {
       await expect(recoveryAccount.connectOwner.deleteGuardian([bob.address])
-      ).to.be.revertedWith("have to pass 1 day at least");
+      ).to.be.revertedWith("have to pass 1 day at least"); //.
     });
 
     it("should revert If call makes the number of guardians is less than threshold", async() => {
