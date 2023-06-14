@@ -39,8 +39,8 @@ contract TestRecoveryToken {
 
 	function burn(address account, bool cancel) external onlyReceiver {
 		uint256 index = _isGuardian(account);
+		require(index <= _maxSupply, "not a guardian"); //.
 		uint256 deletedTime = _guardiansInfo[index].deletedTime;
-		require(index <= _maxSupply, "not a guardian");
 		if(cancel && deletedTime != 0) {
 			_guardiansInfo[index].deletedTime = 0;
 		} else if (!cancel && deletedTime == 0) {
