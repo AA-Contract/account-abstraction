@@ -156,4 +156,37 @@ describe("SocialRecovery", function () {
       });
     });
   });
+  
+  describe("delete guardian", () => {
+    before(async () => {
+      expect(await recoveryToken._isGuardian(bob.address)).to.be.most(4);
+      await recoveryAccount.connect(alice).deleteGuardian([bob.address, dave.address]);
+    });
+
+    it("should set guardian's deleted time to block timestamp", async() => {
+      const index = await recoveryToken._isGuardian(bob.address);
+      expect(await recoveryToken._guardiansInfo[index].deletedTime).to.be.above(0);
+    });
+
+    it("should revert before delete time delay", async() => {
+      await expect(recoveryAccount.connectOwner.deleteGuardian([bob.address])
+      ).to.be.revertedWith("have to pass 1 day at least");
+    });
+
+    it("should revert If call makes the number of guardians is less than threshold", async() => {
+      await advanceTimeTo(TIME_INTERVAL);
+      await expect(recoveryAccount.connect(alice).deleteGuardian([bob.address, dave.address]))
+      .revertedWith("Threshold exceeds guardians count");
+    })
+
+    it("should decrease total supply of recovery token", async() => {   
+      await recoveryAccount.connect(alice).deleteGuardian([bob.address]);
+      expect(await recoveryToken.getTotalSupply()).to.be.equal(2);
+    });
+
+    it("should delete guardian from list", async() => {
+      expect(await recoveryToken._isGuardian(bob.address)).to.be.equal(65535);
+    });
+  });   
 });
+
