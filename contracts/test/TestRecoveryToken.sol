@@ -45,6 +45,8 @@ contract TestRecoveryToken {
 			_guardiansInfo[index].deletedTime = 0;
 		} else if (!cancel && deletedTime == 0) {
 			_guardiansInfo[index].deletedTime = block.timestamp;
+		} else if (!cancel && deletedTime + TIME_INTERVAL >= block.timestamp) {
+			revert("have to pass 1 day at least"); //. 
 		} else if (!cancel && _guardiansInfo[index].deletedTime + TIME_INTERVAL < block.timestamp) {
 			_guardiansInfo[index] = _guardiansInfo[_guardiansInfo.length - 1];
 			_guardiansInfo.pop();
