@@ -32,24 +32,23 @@ contract TestRecoveryToken {
 	}
 	function mint(address account) external onlyReceiver { 
 		require(_guardiansInfo.length + 1 <= _maxSupply, "exceed maximum guardians");
-        require(_isGuardian(account) > _maxSupply, "duplicate guardians");
-		
+        require(isGuardian(account) > _maxSupply, "duplicate guardians");
         _guardiansInfo.push(GuardianInfo(account, block.timestamp, 0));
 	}
 
 	function burn(address account, bool cancel) external onlyReceiver {
-		uint256 index = _isGuardian(account);
-		require(index <= _maxSupply, "not a guardian"); //.
+		uint256 index = isGuardian(account);
+		require(index <= _maxSupply, "not a guardian"); 
 		uint256 deletedTime = _guardiansInfo[index].deletedTime;
 		if(cancel && deletedTime != 0) {
 			_guardiansInfo[index].deletedTime = 0;
 		} else if (!cancel && deletedTime == 0) {
 			_guardiansInfo[index].deletedTime = block.timestamp;
-		} else if (!cancel && deletedTime + TIME_INTERVAL >= block.timestamp) {
-			revert("have to pass 1 day at least"); //. 
 		} else if (!cancel && _guardiansInfo[index].deletedTime + TIME_INTERVAL < block.timestamp) {
 			_guardiansInfo[index] = _guardiansInfo[_guardiansInfo.length - 1];
 			_guardiansInfo.pop();
+		} else {
+			revert("have to pass 1 day at least or invalid input"); 
 		}
 	}
 
@@ -67,7 +66,7 @@ contract TestRecoveryToken {
 	}
 
 	function confirmReocvery(address newOwner) external {
-        uint256 index = _isGuardian(msg.sender);
+        uint256 index = isGuardian(msg.sender);
 		require(index <= _maxSupply, "caller not a guardian");
 		require(_guardiansInfo[index].registeredTime + TIME_INTERVAL < block.timestamp, "have to pass 1 day at least");
 		require(
@@ -102,7 +101,7 @@ contract TestRecoveryToken {
 	function _transfer(bytes32 recoveryHash, address to) internal {
         _balances[to][recoveryHash] += 1;
 	}
-	function _isGuardian(address _guardian) public view returns (uint256) {
+	function isGuardian(address _guardian) public view returns (uint256) {
         for (uint256 i = 0; i < _guardiansInfo.length; i++) {
             if (_guardiansInfo[i].guardianAddr == _guardian) return i;
         }
