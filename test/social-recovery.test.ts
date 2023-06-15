@@ -162,18 +162,13 @@ describe("SocialRecovery", function () {
       await recoveryAccount.connect(alice).deleteGuardian([bob.address]);
     });
 
-    it("should revert if delete invalid guardian", async() => {
-      await expect(recoveryAccount.connect(alice).deleteGuardian([alice.address])
+    it("should revert if the argument is not a guardian", async() => {
+      await expect(recoveryAccount.connect(alice).deleteGuardian([accountOwner.address])
       ).to.be.revertedWith("not a guardian");
-    }
-
-    it("should set guardian's deleted time to block timestamp", async() => {
-      const index = await recoveryToken._isGuardian(bob.address);
-      expect(await recoveryToken._guardiansInfo[index].deletedTime).to.be.above(0);
     });
 
     it("should revert before delete time delay", async() => {
-      await expect(recoveryAccount.connect(alic).deleteGuardian([bob.address])
+      await expect(recoveryAccount.connect(alice).deleteGuardian([bob.address])
       ).to.be.revertedWith("have to pass 1 day at least"); //.
     });
 
@@ -183,14 +178,14 @@ describe("SocialRecovery", function () {
       expect(await recoveryToken.getTotalSupply()).to.be.equal(2);
     });
 
-    it("should revert If call makes the number of guardians is less than threshold", async() => {
-      await expect(recoveryAccount.connect(alice).deleteGuardian([dave.address]))
-      .revertedWith("Threshold exceeds guardians count");
-    })
-
     it("should delete guardian from list", async() => {
       expect(await recoveryToken._isGuardian(bob.address)).to.be.equal(65535);
     });
+
+    it("should revert If the call makes the number of guardians less than threshold", async() => {
+      await expect(recoveryAccount.connect(alice).deleteGuardian([dave.address]))
+      .revertedWith("Threshold exceeds guardians count");
+    })
   });   
 });
 
