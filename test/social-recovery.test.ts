@@ -30,6 +30,7 @@ describe("SocialRecovery", function () {
 
   const ethersSigner = ethers.provider.getSigner();
   const TIME_INTERVAL = BigNumber.from(86400);
+  const Uint16_MAX = 65535;
 
   before(async () => {
     //this.timeout(20000);
@@ -156,36 +157,40 @@ describe("SocialRecovery", function () {
       });
     });
   });
-  
+
   describe("delete guardian", () => {
     before(async () => {
       await recoveryAccount.connect(alice).deleteGuardian([bob.address]);
     });
 
-    it("should revert if the argument is not a guardian", async() => {
-      await expect(recoveryAccount.connect(alice).deleteGuardian([accountOwner.address])
+    it("should revert if the argument is not a guardian", async () => {
+      await expect(
+        recoveryAccount.connect(alice).deleteGuardian([accountOwner.address])
       ).to.be.revertedWith("not a guardian");
     });
 
-    it("should revert before delete time delay", async() => {
-      await expect(recoveryAccount.connect(alice).deleteGuardian([bob.address])
+    it("should revert before delete time delay", async () => {
+      await expect(
+        recoveryAccount.connect(alice).deleteGuardian([bob.address])
       ).to.be.revertedWith("have to pass 1 day at least"); //.
     });
 
-    it("should decrease total supply of recovery token", async() => {   
+    it("should decrease total supply of recovery token", async () => {
       await advanceTimeTo(TIME_INTERVAL);
       await recoveryAccount.connect(alice).deleteGuardian([bob.address]);
       expect(await recoveryToken.getTotalSupply()).to.be.equal(2);
     });
 
-    it("should delete guardian from list", async() => {
-      expect(await recoveryToken._isGuardian(bob.address)).to.be.equal(65535);
+    it("should delete guardian from list", async () => {
+      expect(await recoveryToken.isGuardian(bob.address)).to.be.equal(
+        Uint16_MAX
+      );
     });
 
-    it("should revert If the call makes the number of guardians less than threshold", async() => {
-      await expect(recoveryAccount.connect(alice).deleteGuardian([dave.address]))
-      .revertedWith("Threshold exceeds guardians count");
-    })
-  });   
+    it("should revert If the call makes the number of guardians less than threshold", async () => {
+      await expect(
+        recoveryAccount.connect(alice).deleteGuardian([dave.address])
+      ).revertedWith("Threshold exceeds guardians count");
+    });
+  });
 });
-
