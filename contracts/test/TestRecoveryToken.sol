@@ -52,7 +52,7 @@ contract TestRecoveryToken {
 		}
 	}
 
-	function updateNonce() external onlyReceiver {
+	function _updateNonce() internal {
 		nonce++;
 	}
 
@@ -62,10 +62,10 @@ contract TestRecoveryToken {
 			address guardianAddr = _guardiansInfo[i].guardianAddr;
           if(_confirm[guardianAddr][recoveryHash]) recovery[guardianAddr]++; 
 		}
-		nonce++;
+		_updateNonce();
 	}
 
-	function confirmReocvery(address newOwner) external {
+	function confirmReocovery(address newOwner) external {
         uint256 index = isGuardian(msg.sender);
 		require(index <= _maxSupply, "caller not a guardian");
 		require(_guardiansInfo[index].registeredTime + TIME_INTERVAL < block.timestamp, "have to pass 1 day at least");

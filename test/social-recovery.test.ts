@@ -103,13 +103,13 @@ describe("SocialRecovery", function () {
     });
     it("should revert before the register time delay", async () => {
       await expect(
-        recoveryToken.connect(bob).confirmReocvery(alice.address)
+        recoveryToken.connect(bob).confirmReocovery(alice.address)
       ).to.be.revertedWith("have to pass 1 day at least");
     });
 
     it("should increase recovery token balance of wallet", async () => {
       await advanceTimeTo(TIME_INTERVAL);
-      await recoveryToken.connect(bob).confirmReocvery(alice.address);
+      await recoveryToken.connect(bob).confirmReocovery(alice.address);
       expect(
         await recoveryToken.balanceOf(recoveryAccount.address, alice.address)
       ).to.be.equal(1);
@@ -117,13 +117,13 @@ describe("SocialRecovery", function () {
 
     it("should revert if caller is not a guardian", async () => {
       await expect(
-        recoveryToken.connect(alice).confirmReocvery(alice.address)
+        recoveryToken.connect(alice).confirmReocovery(alice.address)
       ).to.be.revertedWith("caller not a guardian");
     });
 
     it("should revert if a guardian confirms twice", async () => {
       await expect(
-        recoveryToken.connect(bob).confirmReocvery(alice.address)
+        recoveryToken.connect(bob).confirmReocovery(alice.address)
       ).to.be.revertedWith("already confirm");
     });
 
@@ -136,7 +136,7 @@ describe("SocialRecovery", function () {
     describe("recovery wallet", () => {
       before("confirm thresold recovery and recovery wallet", async () => {
         expect(await recoveryAccount.owner()).to.be.equal(accountOwner.address);
-        await recoveryToken.connect(charlie).confirmReocvery(alice.address);
+        await recoveryToken.connect(charlie).confirmReocovery(alice.address);
       });
       it("should revert If the token balance is smaller than thresold", async () => {
         await expect(
