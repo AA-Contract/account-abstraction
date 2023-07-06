@@ -13,37 +13,126 @@ import "../samples/SimpleAccount.sol";
 contract TestExpiryAccount is SimpleAccount {
     using ECDSA for bytes32;
 
-    mapping(address => uint48) public ownerAfter;
-    mapping(address => uint48) public ownerUntil;
+    bytes4 private constant FUNCTION_EXECUTE = bytes4(keccak256("execute(address,uint256,bytes)"));
+    bytes4 private constant FUNCTION_EXECUTE_BATCH = bytes4(keccak256("executeBatch(address[],bytes[])"));
+    uint256 private constant DATE_LENGTH = 6;
+
+    struct TargetMethods {
+        address delegatedContract;
+        bytes4[] delegatedFunctions;
+    }
+    
+    struct TargetInfo {
+	    mapping(address => bool) delegatedContractMap;
+	    mapping(address => mapping(bytes4 => bytes)) delegatedFunctionPeriods;
+	    mapping(address => mapping(bytes4 => bool)) delegatedFunctionMap;
+    }
+
+    mapping(address => TargetInfo) internal delegationMap;
+
 
     // solhint-disable-next-line no-empty-blocks
     constructor(IEntryPoint anEntryPoint) SimpleAccount(anEntryPoint) {}
 
+
     function initialize(address anOwner) public virtual override initializer {
         super._initialize(anOwner);
-        addTemporaryOwner(anOwner, 0, type(uint48).max);
     }
 
     // As this is a test contract, no need for proxy, so no need to disable init
     // solhint-disable-next-line no-empty-blocks
     function _disableInitializers() internal override {}
 
-    function addTemporaryOwner(address owner, uint48 _after, uint48 _until) public onlyOwner {
+    function addTemporaryOwner(address owner, uint48 _after, uint48 _until, TargetMethods[] calldata delegations) external onlyOwner {
         require(_until > _after, "wrong until/after");
-        ownerAfter[owner] = _after;
-        ownerUntil[owner] = _until;
+        TargetInfo storage _targetInfo = delegationMap[owner];
+        uint256 delegationsLength = delegations.length;
+        for (uint256 index; index < delegationsLength; ++index) {
+            TargetMethods memory delegation = delegations[index];
+            address delegatedContract = delegation.delegatedContract;
+
+            _targetInfo.delegatedContractMap[delegatedContract] = true;
+
+            uint256 delegatedFunctionsLength = delegation.delegatedFunctions.length;
+            for (uint256 functionIndex; functionIndex < delegatedFunctionsLength; ++functionIndex) {
+                // total 96 bits : | 48 bits - _after | 48 bits - _until |
+                bytes4 delegatedFunction = delegation.delegatedFunctions[functionIndex];
+                _targetInfo.delegatedFunctionPeriods[delegatedContract][
+                    delegation.delegatedFunctions[functionIndex]
+                ]
+                = abi.encodePacked(_after, _until);
+                _targetInfo.delegatedFunctionMap[delegatedContract][delegatedFunction] = true;
+            }
+        }
     }
 
-    /// implement template method of BaseAccount
+    // implement template method of BaseAccount
     function _validateSignature(UserOperation calldata userOp, bytes32 userOpHash)
-    internal override view returns (uint256 validationData) {
+    internal view override returns (uint256 validationData) {
         bytes32 hash = userOpHash.toEthSignedMessageHash();
         address signer = hash.recover(userOp.signature);
-        uint48 _until = ownerUntil[signer];
-        uint48 _after = ownerAfter[signer];
+        
+        if (signer == owner) {
+            return _packValidationData(false, type(uint48).max, 0);
+        }
+        bytes4 userOpSelector = getSelector(userOp.callData);
+        return _validateSessionKey(userOp.callData, signer, userOpSelector);
+        
+    }
 
-        //we have "until" value for all valid owners. so zero means "invalid signature"
-        bool sigFailed = _until == 0;
+    function _validateSessionKey(bytes calldata userOpCallData, address signer, bytes4 userOpSelector) 
+    internal view returns (uint256 validationData) {
+        address[] memory dest; 
+        bytes[] memory func;
+        bool sigFailed;
+        uint48 _after;
+        uint48 _until = 1;
+
+        if (userOpSelector == FUNCTION_EXECUTE) {
+            (dest, func) = _decodeSingle(userOpCallData); 	
+        } else if (userOpSelector == FUNCTION_EXECUTE_BATCH) {
+            (dest, func) = _decodeBatch(userOpCallData);
+        } else {
+            return _packValidationData(sigFailed, _until, _after);
+        }
+
+        TargetInfo storage targetInfo = delegationMap[signer];
+
+        uint256 length = dest.length;
+        if (length == 0) {
+            sigFailed = true;
+        }
+        for (uint256 i; i < length; ++i) {
+            if (targetInfo.delegatedContractMap[dest[i]]) {
+                bytes4 selec = this.getSelector(func[i]);
+                if (targetInfo.delegatedFunctionMap[dest[i]][selec]) {
+                    (_after, _until) = _decode(targetInfo.delegatedFunctionPeriods[dest[i]][selec]);
+                    return _packValidationData(sigFailed, _until, _after);
+                }
+            }
+        }
+        // Returning _until : 1 & _after : 0 if not found
         return _packValidationData(sigFailed, _until, _after);
+    }
+
+    function getSelector(bytes calldata _data) public pure returns (bytes4 selector) {
+        selector = bytes4(_data[0:4]);
+    }
+
+    function _decodeSingle(bytes calldata _data) internal pure returns (address[] memory dest, bytes[] memory func){
+        dest = new address[](1);
+        func = new bytes[](1);
+        (dest[0], , func[0]) = abi.decode(_data[4:], (address, uint256, bytes));
+    }
+
+    function _decodeBatch(bytes calldata _data) internal pure returns (address[] memory dest, bytes[] memory func){
+        (dest, func) = abi.decode(_data[4:], (address[], bytes[]));
+    }
+
+    function _decode(bytes memory _data) internal pure returns (uint48 _after, uint48 _until) {
+        assembly {
+            _after := mload(add(_data, DATE_LENGTH))
+            _until := mload(add(_data, mul(DATE_LENGTH, 2)))
+        }
     }
 }
