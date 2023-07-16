@@ -65,7 +65,7 @@ contract TestRecoveryToken {
 		_updateNonce();
 	}
 
-	function confirmReocovery(address newOwner) external {
+	function confirmRecovery(address newOwner) external {
         uint256 index = isGuardian(msg.sender);
 		require(index <= _maxSupply, "caller not a guardian");
 		require(_guardiansInfo[index].registeredTime + TIME_INTERVAL < block.timestamp, "have to pass 1 day at least");
