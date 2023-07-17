@@ -2,6 +2,7 @@
 import { ethers } from "hardhat";
 import addTempOwner from "./addTempOwner";
 import sign from "./signUserOp";
+import { sendUserOperation } from "./bundlerUtils";
 
 function padTo2Digits(num: number) {
   return num.toString().padStart(2, "0");
@@ -91,33 +92,13 @@ async function main() {
   const successOp = await sign(account, signer_1, entryPoint, true);
 
   console.log("\nSend transaction to counter contract...");
+  await sendUserOperation(successOp);
 
-  const tx1 = await entryPoint.handleOps([successOp], owner.address, {
-    gasLimit: 10e6,
-  });
-
+  console.log("\n        [Test Temporary Owner: send 'justemit' tx]        ");
   const failOp = await sign(account, signer_2, entryPoint, false);
-  console.log("First user operation will succeed:", successOp);
-  console.log("Second user operation will fail:", failOp);
 
-  /*
-    ==============Calling handleOps() through entrypoint==============
-    */
-  console.log("Calling handleOps() through entrypoint...");
-
-  // const tx1 = await entryPoint.handleOps([successOp], owner.address, {
-  //   gasLimit: 10e6,
-  // });
-  await tx1.wait();
-  console.log("Executing the first UserOp is completed at:", tx1.hash);
-
-  // Will revert at this line
-  // staticcall to see the specific revert reason
-  await entryPoint.callStatic
-    .handleOps([failOp], owner.address, { gasLimit: 10e6 })
-    .catch((error) => {
-      console.log("Transaction failed. Reverted reason:", error.errorArgs[1]);
-    });
+  console.log("\nSend transaction to counter contract...");
+  await sendUserOperation(successOp);
 }
 
 main()
