@@ -98,7 +98,7 @@ async function main() {
   const failOp = await sign(account, signer_2, entryPoint, false);
 
   console.log("\nSend transaction to counter contract...");
-  await sendUserOperation(successOp);
+  await sendUserOperation(failOp);
 }
 
 main()
