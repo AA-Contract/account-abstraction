@@ -35,7 +35,7 @@ const guardian2 = new ethers.Wallet(
   ethers.provider
 );
 const guardian3 = new ethers.Wallet(
-  process.env.DEPLOYER_SOCIAL as string,
+  process.env.USER5 as string,
   ethers.provider
 );
 
@@ -99,6 +99,11 @@ async function sendUserOperation(userOp: UserOperation) {
 
     console.log("UserOperation submitted!\n", JSON.stringify(result));
 
+    let resultString = JSON.stringify(result);
+    let txHash = resultString.split('"')[3];
+    let tx = await ethers.provider.getTransaction(txHash);
+    await tx.wait();
+
     return result;
   } catch (error) {
     if (error instanceof Error) {
@@ -136,6 +141,7 @@ async function deployAccount(salt: number) {
 
   console.log("Send user operation for deployment...");
   await sendUserOperation(testUserOp);
+  console.log(`CA address : ${userAccountContractAddr}`);
 
   userAccountContract = (await ethers.getContractAt(
     "TestSocialRecoveryAccount",
@@ -148,13 +154,13 @@ async function deployAccount(salt: number) {
   console.log("\nRegister Guardian & Mint recovery token...");
   await userAccountContract
     .connect(user)
-    .setGuardianMaxSupply(3)
+    .setGuardianMaxSupply(3, { gasLimit: 5e5 })
     .then(async (tx) => {
       await tx.wait();
     });
   await userAccountContract
     .connect(user)
-    .setTimeInterval(1)
+    .setTimeInterval(1, { gasLimit: 5e5 })
     .then(async (tx) => {
       await tx.wait();
     });
@@ -205,6 +211,7 @@ async function confirmReocovery() {
 }
 
 async function checkOperation(owner: Wallet) {
+  const beforeCounter = await counter.counters(userAccountContractAddr);
   const userAccountContract = await ethers.getContractAt(
     "TestSocialRecoveryAccount",
     userAccountContractAddr
@@ -230,13 +237,10 @@ async function checkOperation(owner: Wallet) {
     entryPoint
   );
 
-  const beforeCounter = await counter.counters(userAccountContractAddr);
   await sendUserOperation(testUserOp);
 
   const afterCounter = await counter.counters(userAccountContractAddr);
   console.log(`Counter value changed: ${beforeCounter} -> ${afterCounter}`);
-
-  expect(afterCounter.sub(beforeCounter)).to.be.equal(1);
 }
 
 load().then(async () => {

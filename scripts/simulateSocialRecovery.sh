@@ -1,4 +1,2 @@
-#!/usr/bin/env bash
-export $(cat ../.env | xargs) && rails c
-
+source ../.env
 npx hardhat run socialRecovery.ts --network development
