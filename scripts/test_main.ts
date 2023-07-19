@@ -91,13 +91,15 @@ async function main() {
   console.log("\n        [Test Temporary Owner: send 'count' tx]        ");
   const successOp = await sign(account, signer_1, entryPoint, true);
 
-  console.log("\nSend transaction to counter contract...");
+  console.log("\nSend user opeartion to counter contract...");
+  console.log(`sender: ${successOp.sender}, signer: ${signer_1.address}`);
   await sendUserOperation(successOp);
 
   console.log("\n        [Test Temporary Owner: send 'justemit' tx]        ");
   const failOp = await sign(account, signer_2, entryPoint, false);
 
   console.log("\nSend transaction to counter contract...");
+  console.log(`sender: ${successOp.sender}, signer: ${signer_2.address}`);
   await sendUserOperation(failOp);
 }
 
