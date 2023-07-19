@@ -10,8 +10,10 @@ function padTo2Digits(num: number) {
 
 // 👇️ format as "YYYY-MM-DD hh:mm:ss"
 // You can tweak the format easily
-function formatDate(ms: number) {
-  const date = new Date(ms);
+function formatDate(s: number) {
+  const date = new Date(1970, 0, 1);
+  date.setSeconds(s);
+
   return (
     [
       date.getFullYear(),

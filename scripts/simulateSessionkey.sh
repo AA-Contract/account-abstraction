@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
-export $(cat ../.env | xargs) && rails c
+source ../.env
 
-npx hardhat run test_main.ts --network localhost
+npx hardhat run test_main.ts --network goerli

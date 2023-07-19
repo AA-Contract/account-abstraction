@@ -1,6 +1,7 @@
 import { BigNumber } from "ethers";
 import { UserOperation } from "../test/UserOperation";
 import _ from "lodash";
+import { ethers } from "hardhat";
 
 export function formatUserOperation(userOp: UserOperation) {
   userOp.nonce = BigNumber.from(userOp.nonce).toHexString();
@@ -36,17 +37,21 @@ export async function sendUserOperation(userOp: UserOperation) {
     );
 
     if (!response.ok) {
-      throw new Error(await response.text());
+      throw new Error(`Error! status: ${response.status}`);
     }
 
     const result = await response.json();
+
+    let resultString = JSON.stringify(result);
+    let txHash = resultString.split('"')[3];
+    let tx = await ethers.provider.getTransaction(txHash);
+    await tx.wait();
 
     console.log("UserOperation submitted!\n", JSON.stringify(result));
 
     return result;
   } catch (error) {
     if (error instanceof Error) {
-      console.log("UserOperation failed!");
       console.log("error message: ", error.message);
       return error.message;
     } else {
