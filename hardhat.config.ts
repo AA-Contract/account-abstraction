@@ -17,7 +17,11 @@ const config: HardhatUserConfig = {
     },
     goerli: {
       url: process.env.INFURA_KEY,
-      accounts: [process.env.DEPLOYER!, process.env.USER1!, process.env.USER2!],
+      accounts: [
+        process.env.DEPLOYER_SOCIAL!,
+        process.env.USER1!,
+        process.env.USER2!,
+      ],
       chainId: 5,
     },
     hardhat: {
