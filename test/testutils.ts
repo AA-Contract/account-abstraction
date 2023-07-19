@@ -36,7 +36,7 @@ export const tostr = (x: any): string => (x != null ? x.toString() : "null");
 export function tonumber(x: any): number {
   try {
     return parseFloat(x.toString());
-  } catch (e: any) {
+  } catch (e) {
     console.log("=== failed to parseFloat:", x, e.message);
     return NaN;
   }
@@ -57,7 +57,6 @@ export async function fund(
     .getSigner()
     .sendTransaction({ to: address, value: parseEther(amountEth) });
   await tx.wait();
-  console.log("tx :", tx.hash);
 }
 
 export async function getBalance(address: string): Promise<number> {
@@ -180,7 +179,7 @@ export function rethrow(): (e: Error) => void {
   if (arguments[0] != null) {
     throw new Error("must use .catch(rethrow()), and NOT .catch(rethrow)");
   }
-  return function (e: Error) {
+  return function(e: Error) {
     const solstack = e.stack!.match(/((?:.* at .*\.sol.*\n)+)/);
     const stack = (solstack != null ? solstack[1] : "") + callerStack;
     // const regex = new RegExp('error=.*"data":"(.*?)"').compile()

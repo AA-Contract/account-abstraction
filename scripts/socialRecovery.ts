@@ -11,7 +11,7 @@ import {
 import { expect } from "chai";
 import { BigNumber, Wallet } from "ethers";
 import { UserOperation } from "../test/UserOperation";
-import _ from "lodash";
+import _, { floor } from "lodash";
 
 var entryPoint: EntryPoint;
 var accountFactory: TestSocialRecoveryAccountFactory;
@@ -35,7 +35,7 @@ const guardian2 = new ethers.Wallet(
   ethers.provider
 );
 const guardian3 = new ethers.Wallet(
-  process.env.DEPLOYER as string,
+  process.env.DEPLOYER_SOCIAL as string,
   ethers.provider
 );
 
@@ -111,11 +111,10 @@ async function sendUserOperation(userOp: UserOperation) {
   }
 }
 
-async function deployAccount() {
+async function deployAccount(salt: number) {
   console.log("        [Deploy Social Recovery Wallet]        \n");
 
-  const refundAccount = (await ethers.getSigners())[0];
-  const testInitCode = getAccountInitCode(user.address, accountFactory, 333);
+  const testInitCode = getAccountInitCode(user.address, accountFactory, salt);
 
   userAccountContract = (await ethers.getContractAt(
     "TestSocialRecoveryAccount",
@@ -145,6 +144,8 @@ async function deployAccount() {
 
   console.log("\n");
   console.log("        [Register Guardian]        \n");
+
+  console.log("\nRegister Guardian & Mint recovery token...");
   await userAccountContract
     .connect(user)
     .setGuardianMaxSupply(3)
@@ -165,12 +166,13 @@ async function deployAccount() {
     )
     .then(async (tx) => {
       await tx.wait();
+      console.log(`Transaction completed! txHash: ${tx.hash}`);
     });
   recoveryToken = (await ethers.getContractAt(
     "TestRecoveryToken",
     await userAccountContract.recoveryToken()
   )) as TestRecoveryToken;
-  console.log("Guardian list");
+  console.log("\nGuardian list");
   console.log("1. ", guardian1.address);
   console.log("2. ", guardian2.address);
   console.log("3. ", guardian3.address);
@@ -203,7 +205,6 @@ async function confirmReocovery() {
 }
 
 async function checkOperation(owner: Wallet) {
-  const refundAccount = (await ethers.getSigners())[0];
   const userAccountContract = await ethers.getContractAt(
     "TestSocialRecoveryAccount",
     userAccountContractAddr
@@ -216,7 +217,7 @@ async function checkOperation(owner: Wallet) {
     count,
   ]);
 
-  console.log("Send transaction to counter contract...");
+  console.log("Send user operation to counter contract...");
   const testUserOp = await fillAndSign(
     {
       sender: userAccountContractAddr,
@@ -242,15 +243,16 @@ load().then(async () => {
   console.log("*********************************************");
   console.log("\n          🔐  Social Reovery Test  🔐         \n");
   console.log("*********************************************\n");
+  const salt = Math.floor(Math.random() * 1000000);
 
   userAccountContractAddr = await accountFactory.callStatic.createAccount(
     user.address,
-    333
+    salt
   ); // get SWC address by static call
 
   // console.log("Sender: ", userAccountContractAddr);
 
-  deployAccount().then(async () => {
+  deployAccount(salt).then(async () => {
     console.log("\n");
     console.log("        [Send User Operation With Original Owner]        \n");
 
