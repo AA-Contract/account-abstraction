@@ -8,8 +8,6 @@ function padTo2Digits(num: number) {
   return num.toString().padStart(2, "0");
 }
 
-// 👇️ format as "YYYY-MM-DD hh:mm:ss"
-// You can tweak the format easily
 function formatDate(s: number) {
   const date = new Date(1970, 0, 1);
   date.setSeconds(s);
