@@ -37,7 +37,7 @@ export async function sendUserOperation(userOp: UserOperation) {
     );
 
     if (!response.ok) {
-      throw new Error(`Error! status: ${response.status}`);
+      throw new Error(`Error! status: ${await response.text()}`);
     }
 
     const result = await response.json();
