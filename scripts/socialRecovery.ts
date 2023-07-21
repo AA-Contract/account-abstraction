@@ -259,6 +259,12 @@ load().then(async () => {
       console.log("\n");
       console.log("        [Send User Operation With New Owner]        \n");
       await checkOperation(newOwner);
+
+      console.log("\n");
+      console.log(
+        "        [Send User Operation With Original Owner: must revert]        \n"
+      );
+      await checkOperation(user);
     });
   });
   return;
