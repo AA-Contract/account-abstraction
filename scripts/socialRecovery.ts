@@ -21,11 +21,8 @@ var counter: TestCounter;
 var userAccountContract: TestSocialRecoveryAccount;
 var userAccountContractAddr: string;
 
-const user = new ethers.Wallet(process.env.USER1 as string, ethers.provider);
-const newOwner = new ethers.Wallet(
-  process.env.USER2 as string,
-  ethers.provider
-);
+var user = new ethers.Wallet(process.env.USER1 as string, ethers.provider);
+var newOwner = new ethers.Wallet(process.env.USER2 as string, ethers.provider);
 const guardian1 = new ethers.Wallet(
   process.env.USER3 as string,
   ethers.provider
@@ -56,6 +53,22 @@ async function load() {
     "TestCounter",
     "0xe59C5DFE380cCcD122e16baF2379a5eed8540739"
   )) as TestCounter;
+  userAccountContract = (await ethers.getContractAt(
+    "TestSocialRecoveryAccount",
+    "0x095A43A0448C948108fb2eDb69eb4e179f35B786"
+  )) as TestSocialRecoveryAccount;
+  userAccountContractAddr = userAccountContract.address;
+  recoveryToken = (await ethers.getContractAt(
+    "TestRecoveryToken",
+    await userAccountContract.recoveryToken()
+  )) as TestRecoveryToken;
+
+  let userAddr = await userAccountContract.owner();
+  if (userAddr != user.address) {
+    let tmp = user;
+    user = newOwner;
+    newOwner = tmp;
+  }
 }
 
 function formatUserOperation(userOp: UserOperation) {
@@ -80,6 +93,8 @@ function formatUserOperation(userOp: UserOperation) {
 
 async function sendUserOperation(userOp: UserOperation) {
   try {
+    // uncomment below to print user operation
+    // console.log(formatUserOperation(userOp));
     const response = await fetch(
       `http://localhost:8000/api/v1/user-ops/0x7eb6D1C6a5C0c30b97668FC391EC9f0e5250a816`,
       {
@@ -92,7 +107,7 @@ async function sendUserOperation(userOp: UserOperation) {
     );
 
     if (!response.ok) {
-      throw new Error(`Error! status: ${response.status}`);
+      throw new Error(`Error! status: ${await response.text()}`);
     }
 
     const result = await response.json();
@@ -116,72 +131,35 @@ async function sendUserOperation(userOp: UserOperation) {
   }
 }
 
-async function deployAccount(salt: number) {
-  console.log("        [Deploy Social Recovery Wallet]        \n");
+async function deployAccount() {
+  console.log("        [Set Social Recovery Wallet]        \n");
 
-  const testInitCode = getAccountInitCode(user.address, accountFactory, salt);
+  console.log(`\nSocial recovery wallet : ${userAccountContractAddr}`);
+  console.log(`Owner : ${user.address}`);
 
-  userAccountContract = (await ethers.getContractAt(
-    "TestSocialRecoveryAccount",
-    userAccountContractAddr
-  )) as TestSocialRecoveryAccount;
-
-  await fund(userAccountContractAddr); //depoist 0.3 ETH to SCW
-
-  const testUserOp = await fillAndSign(
-    {
-      sender: userAccountContractAddr,
-      verificationGasLimit: 10e6,
-      initCode: testInitCode,
-      callGasLimit: 10e6,
-    },
-    user,
-    entryPoint
-  );
-
-  console.log("Send user operation for deployment...");
-  await sendUserOperation(testUserOp);
-  console.log(`CA address : ${userAccountContractAddr}`);
-
-  userAccountContract = (await ethers.getContractAt(
-    "TestSocialRecoveryAccount",
-    userAccountContractAddr
-  )) as TestSocialRecoveryAccount;
+  let balance = await ethers.provider.getBalance(userAccountContractAddr);
+  if (balance < ethers.utils.parseEther("0.1")) {
+    console.log("Wallet balance :", balance);
+    await fund(userAccountContractAddr);
+  }
 
   console.log("\n");
   console.log("        [Register Guardian]        \n");
 
-  console.log("\nRegister Guardian & Mint recovery token...");
-  await userAccountContract
-    .connect(user)
-    .setGuardianMaxSupply(3, { gasLimit: 5e5 })
-    .then(async (tx) => {
-      await tx.wait();
-    });
-  await userAccountContract
-    .connect(user)
-    .setTimeInterval(1, { gasLimit: 5e5 })
-    .then(async (tx) => {
-      await tx.wait();
-    });
-  await userAccountContract
-    .connect(user)
-    .registerGuardian(
-      [guardian1.address, guardian2.address, guardian3.address],
-      2
-    )
-    .then(async (tx) => {
-      await tx.wait();
-      console.log(`Transaction completed! txHash: ${tx.hash}`);
-    });
-  recoveryToken = (await ethers.getContractAt(
-    "TestRecoveryToken",
-    await userAccountContract.recoveryToken()
-  )) as TestRecoveryToken;
+  let isGuardian1 = (
+    await recoveryToken.callStatic.isGuardian(guardian1.address)
+  ).lt(ethers.constants.MaxUint256);
+  let isGuardian2 = (
+    await recoveryToken.callStatic.isGuardian(guardian2.address)
+  ).lt(ethers.constants.MaxUint256);
+  let isGuardian3 = (
+    await recoveryToken.callStatic.isGuardian(guardian3.address)
+  ).lt(ethers.constants.MaxUint256);
+
   console.log("\nGuardian list");
-  console.log("1. ", guardian1.address);
-  console.log("2. ", guardian2.address);
-  console.log("3. ", guardian3.address);
+  console.log("1. ", guardian1.address, ": ", isGuardian1);
+  console.log("2. ", guardian2.address, ": ", isGuardian2);
+  console.log("3. ", guardian3.address, ": ", isGuardian3);
 }
 
 async function confirmReocovery() {
@@ -247,22 +225,14 @@ load().then(async () => {
   console.log("*********************************************");
   console.log("\n          🔐  Social Reovery Test  🔐         \n");
   console.log("*********************************************\n");
-  const salt = Math.floor(Math.random() * 1000000);
-
-  userAccountContractAddr = await accountFactory.callStatic.createAccount(
-    user.address,
-    salt
-  ); // get SWC address by static call
 
   // console.log("Sender: ", userAccountContractAddr);
 
-  deployAccount(salt).then(async () => {
+  deployAccount().then(async () => {
     console.log("\n");
     console.log("        [Send User Operation With Original Owner]        \n");
 
     await checkOperation(user);
-    expect(await userAccountContract.owner()).to.be.equal(user.address);
-    expect(await recoveryToken.getNonce()).to.be.equal(0);
     confirmReocovery().then(async () => {
       console.log("\n");
       console.log("        [Recover Wallet]        \n");
@@ -273,10 +243,8 @@ load().then(async () => {
           console.log("Send transaction for recovery...");
           await tx.wait();
         });
-      expect(await userAccountContract.owner()).to.be.equal(newOwner.address);
-      expect(await recoveryToken.getNonce()).to.be.equal(1);
       console.log("Wallet owner changed!");
-      console.log(`${newOwner.address} -> ${oldOwnerAddress}`);
+      console.log(`${oldOwnerAddress} -> ${newOwner.address}`);
 
       console.log("\n");
       console.log("        [Send User Operation With New Owner]        \n");

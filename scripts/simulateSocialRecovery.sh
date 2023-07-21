@@ -1,2 +1,4 @@
 source ../.env
-npx hardhat run socialRecovery.ts --network development
+npx hardhat run socialRecovery.ts --network goerli
+
+

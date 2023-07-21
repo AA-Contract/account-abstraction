@@ -45,7 +45,7 @@ export function tonumber(x: any): number {
 // just throw 1eth from account[0] to the given address (or contract instance)
 export async function fund(
   contractOrAddress: string | Contract,
-  amountEth = "0.1"
+  amountEth = "0.3"
 ): Promise<void> {
   let address: string;
   if (typeof contractOrAddress === "string") {
@@ -56,6 +56,7 @@ export async function fund(
   const tx = await ethers.provider
     .getSigner()
     .sendTransaction({ to: address, value: parseEther(amountEth) });
+  console.log("fund tx hash: ", tx.hash);
   await tx.wait();
 }
 
