@@ -171,13 +171,20 @@ async function confirmReocovery() {
     .then(async (tx) => {
       console.log("guardian 1 confirmed recovery...");
       await tx.wait();
+    })
+    .catch(() => {
+      console.log("guardian 1 already confirmed...");
     });
+
   await recoveryToken
     .connect(guardian2)
     .confirmRecovery(newOwner.address)
     .then(async (tx) => {
       console.log("guardian 2 confirmed recovery...");
       await tx.wait();
+    })
+    .catch(() => {
+      console.log("guardian 3 already confirmed...");
     });
   await recoveryToken
     .connect(guardian3)
@@ -185,6 +192,9 @@ async function confirmReocovery() {
     .then(async (tx) => {
       console.log("guardian 3 confirmed recovery...");
       await tx.wait();
+    })
+    .catch(() => {
+      console.log("guardian 3 already confirmed...");
     });
 }
 
