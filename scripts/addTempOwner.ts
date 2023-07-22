@@ -33,7 +33,9 @@ async function addTempOwner(
 
   const tx = await account
     .connect(owner)
-    .addTemporaryOwner(signer.address, validAfter, validUntil, targetMethods);
+    .addTemporaryOwner(signer.address, validAfter, validUntil, targetMethods, {
+      gasPrice: 45000000000,
+    });
   await tx.wait();
   console.log(`Added ${signer.address}\ntx hash is:`, tx.hash);
 }
