@@ -107,7 +107,7 @@ async function sendUserOperation(userOp: UserOperation) {
     );
 
     if (!response.ok) {
-      throw new Error(`Error! status: ${await response.text()}`);
+      throw new Error(`Error! ${await response.text()}`);
     }
 
     const result = await response.json();
@@ -167,7 +167,9 @@ async function confirmReocovery() {
   console.log("        [Confirm Recovery]        \n");
   await recoveryToken
     .connect(guardian1)
-    .confirmRecovery(newOwner.address)
+    .confirmRecovery(newOwner.address, {
+      gasPrice: 45000000000,
+    })
     .then(async (tx) => {
       console.log("guardian 1 confirmed recovery...");
       await tx.wait();
@@ -178,7 +180,9 @@ async function confirmReocovery() {
 
   await recoveryToken
     .connect(guardian2)
-    .confirmRecovery(newOwner.address)
+    .confirmRecovery(newOwner.address, {
+      gasPrice: 45000000000,
+    })
     .then(async (tx) => {
       console.log("guardian 2 confirmed recovery...");
       await tx.wait();
@@ -188,7 +192,9 @@ async function confirmReocovery() {
     });
   await recoveryToken
     .connect(guardian3)
-    .confirmRecovery(newOwner.address)
+    .confirmRecovery(newOwner.address, {
+      gasPrice: 45000000000,
+    })
     .then(async (tx) => {
       console.log("guardian 3 confirmed recovery...");
       await tx.wait();
@@ -248,9 +254,12 @@ load().then(async () => {
       console.log("        [Recover Wallet]        \n");
       const oldOwnerAddress = await userAccountContract.owner();
       await userAccountContract
-        .recoveryWallet(newOwner.address)
+        .recoveryWallet(newOwner.address, {
+          gasPrice: 45000000000,
+        })
         .then(async (tx) => {
           console.log("Send transaction for recovery...");
+          console.log("tx hash: ", tx.hash);
           await tx.wait();
         });
       console.log("Wallet owner changed!");
