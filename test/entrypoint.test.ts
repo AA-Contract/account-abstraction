@@ -20,7 +20,8 @@ import {
   TestSignatureAggregator,
   TestSignatureAggregator__factory,
   MaliciousAccount__factory,
-  TestWarmColdAccount__factory
+  TestWarmColdAccount__factory,
+  TestToken__factory
 } from '../typechain'
 import {
   AddressZero,
@@ -1207,11 +1208,13 @@ describe('EntryPoint', function () {
       })
     })
 
-    describe('Validation time-range', () => {
+    // Add: With UserOp Calldata Validation
+    describe('Validation time-range with session key transaction', () => {
       const beneficiary = createAddress()
       let account: TestExpiryAccount
       let now: number
       let sessionOwner: Wallet
+      let counter: TestCounter
       before('init account with session key', async () => {
         // create a test account. The primary owner is the global ethersSigner, so that we can easily add a temporaryOwner, below
         account = await new TestExpiryAccount__factory(ethersSigner).deploy(entryPoint.address)
@@ -1219,36 +1222,102 @@ describe('EntryPoint', function () {
         await ethersSigner.sendTransaction({ to: account.address, value: parseEther('0.1') })
         now = await ethers.provider.getBlock('latest').then(block => block.timestamp)
         sessionOwner = createAccountOwner()
-        await account.addTemporaryOwner(sessionOwner.address, 100, now + 60)
+        counter = await new TestCounter__factory(ethersSigner).deploy()
+        const count = counter.interface.encodeFunctionData('count')
+        const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+          {
+            delegatedContract: counter.address,
+            delegatedFunctions: [
+              count 
+            ]
+          }
+        ];
+        await account.addTemporaryOwner(sessionOwner.address, 100, now + 60, TargetMethods)
       })
 
-      describe('validateUserOp time-range', function () {
+      describe('validateUserOp time-range with calldata validation', function () {
         it('should accept non-expired owner', async () => {
+          const count = counter.interface.encodeFunctionData('count')
           const userOp = await fillAndSign({
-            sender: account.address
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count])
           }, sessionOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
           expect(ret.returnInfo.validUntil).to.eql(now + 60)
           expect(ret.returnInfo.validAfter).to.eql(100)
+          expect(ret.returnInfo.sigFailed).to.eql(false)
         })
 
         it('should not reject expired owner', async () => {
           const expiredOwner = createAccountOwner()
-          await account.addTemporaryOwner(expiredOwner.address, 123, now - 60)
+          const counter = await new TestCounter__factory(ethersSigner).deploy()
+          const count = counter.interface.encodeFunctionData('count')
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+            {
+              delegatedContract: counter.address,
+              delegatedFunctions: [
+                count 
+              ]
+            }
+          ];
+          
+          await account.addTemporaryOwner(
+            expiredOwner.address, 
+            123, 
+            now - 60, 
+            TargetMethods
+          )
+          
           const userOp = await fillAndSign({
-            sender: account.address
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count])
           }, expiredOwner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
           expect(ret.returnInfo.validUntil).eql(now - 60)
           expect(ret.returnInfo.validAfter).to.eql(123)
+          expect(ret.returnInfo.sigFailed).to.eql(false)
+        })
+
+        it('should accept executeBatch', async () => {
+          const expiredOwner = createAccountOwner()
+          const counter = await new TestCounter__factory(ethersSigner).deploy()
+          const count = counter.interface.encodeFunctionData('count')
+          const justemit = counter.interface.encodeFunctionData('justemit')
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+            {
+              delegatedContract: counter.address,
+              delegatedFunctions: [
+                count,
+                justemit
+              ]
+            }
+          ];
+          
+          await account.addTemporaryOwner(
+            expiredOwner.address, 
+            123, 
+            now + 60, 
+            TargetMethods
+          )
+          
+          const userOp = await fillAndSign({
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('executeBatch', [[counter.address, counter.address], [count, justemit]])
+          }, expiredOwner, entryPoint)
+          const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
+          expect(ret.returnInfo.validUntil).eql(now + 60)
+          expect(ret.returnInfo.validAfter).to.eql(123)
+          expect(ret.returnInfo.sigFailed).to.eql(false)
         })
       })
 
       describe('validatePaymasterUserOp with deadline', function () {
         let paymaster: TestExpirePaymaster
         let now: number
+
         before('init account with session key', async function () {
           this.timeout(20000)
+          counter = await new TestCounter__factory(ethersSigner).deploy()
           paymaster = await new TestExpirePaymaster__factory(ethersSigner).deploy(entryPoint.address)
           await paymaster.addStake(1, { value: paymasterStake })
           await paymaster.deposit({ value: parseEther('0.1') })
@@ -1257,8 +1326,10 @@ describe('EntryPoint', function () {
 
         it('should accept non-expired paymaster request', async () => {
           const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [123, now + 60])
+          const count = counter.interface.encodeFunctionData('count')
           const userOp = await fillAndSign({
             sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count]),
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
@@ -1268,8 +1339,10 @@ describe('EntryPoint', function () {
 
         it('should not reject expired paymaster request', async () => {
           const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [321, now - 60])
+          const count = counter.interface.encodeFunctionData('count')
           const userOp = await fillAndSign({
             sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count]),
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, ethersSigner, entryPoint)
           const ret = await entryPoint.callStatic.simulateValidation(userOp).catch(simulationResultCatch)
@@ -1280,8 +1353,11 @@ describe('EntryPoint', function () {
         // helper method
         async function createOpWithPaymasterParams (owner: Wallet, after: number, until: number): Promise<UserOperation> {
           const timeRange = defaultAbiCoder.encode(['uint48', 'uint48'], [after, until])
+          const count = counter.interface.encodeFunctionData('count')
+          
           return await fillAndSign({
             sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count]),
             paymasterAndData: hexConcat([paymaster.address, timeRange])
           }, owner, entryPoint)
         }
@@ -1290,7 +1366,16 @@ describe('EntryPoint', function () {
           let owner: Wallet
           before(async () => {
             owner = createAccountOwner()
-            await account.addTemporaryOwner(owner.address, 100, 500)
+            const count = counter.interface.encodeFunctionData('count')
+            const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+              {
+                delegatedContract: counter.address,
+                delegatedFunctions: [
+                  count 
+                ]
+              }
+            ];
+            await account.addTemporaryOwner(owner.address, 100, 500, TargetMethods)
           })
 
           async function simulateWithPaymasterParams (after: number, until: number): Promise<any> {
@@ -1312,20 +1397,50 @@ describe('EntryPoint', function () {
           it('should use higher "until" value of account', async () => {
             expect((await simulateWithPaymasterParams(200, 600)).validUntil).to.eql(500)
           })
-
+          // sessionOwner initialized, so redeclaring sessionOwner conditions
           it('handleOps should revert on expired paymaster request', async () => {
+            const count = counter.interface.encodeFunctionData('count')
+            const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+              {
+                delegatedContract: counter.address,
+                delegatedFunctions: [
+                  count 
+                ]
+              }
+            ];
+            await account.addTemporaryOwner(sessionOwner.address, 100, now + 60, TargetMethods)
             const userOp = await createOpWithPaymasterParams(sessionOwner, now + 100, now + 200)
             await expect(entryPoint.handleOps([userOp], beneficiary))
               .to.revertedWith('AA32 paymaster expired or not due')
           })
         })
       })
+      
       describe('handleOps should abort on time-range', () => {
+        let counter: TestCounter
+
+        before('test Counter contract creation', async () => {
+          this.timeout(20000)
+          counter = await new TestCounter__factory(ethersSigner).deploy()
+        })
+
+        
+        
         it('should revert on expired account', async () => {
           const expiredOwner = createAccountOwner()
-          await account.addTemporaryOwner(expiredOwner.address, 1, 2)
+          const count = counter.interface.encodeFunctionData('count')
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+            {
+              delegatedContract: counter.address,
+              delegatedFunctions: [
+                count 
+              ]
+            }
+          ];
+          await account.addTemporaryOwner(expiredOwner.address, 1, 2, TargetMethods)
           const userOp = await fillAndSign({
-            sender: account.address
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count])
           }, expiredOwner, entryPoint)
           await expect(entryPoint.handleOps([userOp], beneficiary))
             .to.revertedWith('AA22 expired or not due')
@@ -1333,9 +1448,85 @@ describe('EntryPoint', function () {
 
         it('should revert on date owner', async () => {
           const futureOwner = createAccountOwner()
-          await account.addTemporaryOwner(futureOwner.address, now + 100, now + 200)
+          const count = counter.interface.encodeFunctionData('count')
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+            {
+              delegatedContract: counter.address,
+              delegatedFunctions: [
+                count 
+              ]
+            }
+          ];
+          await account.addTemporaryOwner(futureOwner.address, now + 100, now + 200, TargetMethods)
           const userOp = await fillAndSign({
-            sender: account.address
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count])
+          }, futureOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
+        })
+
+        // Unregisted contract and method makes both _after and _until to be zero, emitting "AA22 expired or not due" error.
+        it('should revert on unregistered contract', async () => {
+          const futureOwner = createAccountOwner()
+          const count = counter.interface.encodeFunctionData('count')
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+            {
+              delegatedContract: counter.address,
+              delegatedFunctions: [
+                count 
+              ]
+            }
+          ];
+          await account.addTemporaryOwner(futureOwner.address, now - 100, now + 200, TargetMethods)
+          const token = await new TestToken__factory(ethersSigner).deploy()
+          const totalSupply = token.interface.encodeFunctionData('totalSupply')
+          const userOp = await fillAndSign({
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [token.address, 0, totalSupply])
+          }, futureOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
+        })
+
+        it('should revert on unregistered method', async () => {
+          const futureOwner = createAccountOwner()
+          const count = counter.interface.encodeFunctionData('count')
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+            {
+              delegatedContract: counter.address,
+              delegatedFunctions: [
+                count 
+              ]
+            }
+          ];
+          await account.addTemporaryOwner(futureOwner.address, now - 100, now + 200, TargetMethods)
+          const justemit = counter.interface.encodeFunctionData('justemit')
+          const userOp = await fillAndSign({
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, justemit])
+          }, futureOwner, entryPoint)
+          await expect(entryPoint.handleOps([userOp], beneficiary))
+            .to.revertedWith('AA22 expired or not due')
+        })
+
+        it('should revert on deleted account', async () => {
+          const futureOwner = createAccountOwner()
+          const count = counter.interface.encodeFunctionData('count')
+          const TargetMethods : TestExpiryAccount.TargetMethodsStruct[] = [
+            {
+              delegatedContract: counter.address,
+              delegatedFunctions: [
+                count 
+              ]
+            }
+          ];
+          await account.addTemporaryOwner(futureOwner.address, now - 100, now + 200, TargetMethods)
+          // Deleting futureOwner from the account
+          await account.addTemporaryOwner(futureOwner.address, 0, 1, TargetMethods)
+          const userOp = await fillAndSign({
+            sender: account.address,
+            callData: account.interface.encodeFunctionData('execute', [counter.address, 0, count])
           }, futureOwner, entryPoint)
           await expect(entryPoint.handleOps([userOp], beneficiary))
             .to.revertedWith('AA22 expired or not due')
