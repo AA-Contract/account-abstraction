@@ -4,34 +4,42 @@ import "@nomiclabs/hardhat-waffle";
 import "hardhat-deploy";
 import "dotenv/config";
 
-const config: HardhatUserConfig = {
-  
-
 const optimizedComilerSettings = {
-  version: '0.8.17',
+  version: "0.8.17",
   settings: {
     optimizer: { enabled: true, runs: 1000000 },
-    viaIR: true
-  }
-}
+    viaIR: true,
+  },
+};
 
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
 const config: HardhatUserConfig = {
   solidity: {
-    compilers: [{
-      version: '0.8.17',
-      settings: {
-        optimizer: { enabled: true, runs: 1000000 }
-      }
-    }],
+    compilers: [
+      {
+        version: "0.8.17",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1,
+          },
+          outputSelection: {
+            "*": {
+              "*": ["storageLayout"],
+            },
+          },
+        },
+      },
+    ],
     overrides: {
-      'contracts/core/EntryPoint.sol': optimizedComilerSettings,
-      'contracts/samples/SimpleAccount.sol': optimizedComilerSettings,
-      'contracts/test/TestExpiryAccount.sol': optimizedComilerSettings,
-      'contracts/test/TestExpiryAccountFactory.sol': optimizedComilerSettings
+      "contracts/core/EntryPoint.sol": optimizedComilerSettings,
+      "contracts/samples/SimpleAccount.sol": optimizedComilerSettings,
+      "contracts/test/TestExpiryAccount.sol": optimizedComilerSettings,
+      "contracts/test/TestExpiryAccountFactory.sol": optimizedComilerSettings,
     },
+  },
   namedAccounts: {
     deployer: 0,
     withdrawer: 1,
@@ -55,27 +63,6 @@ const config: HardhatUserConfig = {
       blockGasLimit: 12000000,
     },
   },
-  solidity: {
-    version: "0.8.12",
-    settings: {
-      outputSelection: {
-        "*": {
-          "*": ["storageLayout"],
-        },
-      },
-      optimizer: {
-        enabled: true,
-        runs: 1,
-      },
-    },
-  },
 };
 
-// coverage chokes on the "compilers" settings
-if (process.env.COVERAGE != null) {
-  // @ts-ignore
-  config.solidity = config.solidity.compilers[0]
-}
-
-export default config
-
+export default config;
