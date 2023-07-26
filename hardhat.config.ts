@@ -4,6 +4,8 @@ import "@nomiclabs/hardhat-waffle";
 import "hardhat-deploy";
 import "dotenv/config";
 
+require("dotenv").config();
+
 const optimizedComilerSettings = {
   version: "0.8.17",
   settings: {
@@ -53,9 +55,11 @@ const config: HardhatUserConfig = {
     goerli: {
       url: process.env.INFURA_KEY,
       accounts: [
-        process.env.DEPLOYER_SOCIAL!,
+        process.env.DEPLOYER!,
         process.env.USER1!,
         process.env.USER2!,
+        process.env.USER3!,
+        process.env.USER4!,
       ],
       chainId: 5,
     },
