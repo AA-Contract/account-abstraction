@@ -45,7 +45,7 @@ export function tonumber(x: any): number {
 // just throw 1eth from account[0] to the given address (or contract instance)
 export async function fund(
   contractOrAddress: string | Contract,
-  amountEth = "0.3"
+  amountEth = "0.2"
 ): Promise<void> {
   let address: string;
   if (typeof contractOrAddress === "string") {
@@ -180,7 +180,7 @@ export function rethrow(): (e: Error) => void {
   if (arguments[0] != null) {
     throw new Error("must use .catch(rethrow()), and NOT .catch(rethrow)");
   }
-  return function(e: Error) {
+  return function (e: Error) {
     const solstack = e.stack!.match(/((?:.* at .*\.sol.*\n)+)/);
     const stack = (solstack != null ? solstack[1] : "") + callerStack;
     // const regex = new RegExp('error=.*"data":"(.*?)"').compile()
