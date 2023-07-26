@@ -27,7 +27,7 @@ contract TestRecoveryToken {
 		_maxSupply = max;
 	}
 	function setTimeInterval(uint256 timeInterval) external onlyReceiver {
-		require(timeInterval > TIME_INTERVAL, "minimum time is 1 day");
+		//require(timeInterval > TIME_INTERVAL, "minimum time is 1 day");
 		TIME_INTERVAL = timeInterval;
 	}
 	function mint(address account) external onlyReceiver { 
