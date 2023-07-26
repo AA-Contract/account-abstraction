@@ -57,7 +57,7 @@ async function load() {
 
   userAccountContractAddr = await accountFactory.callStatic.createAccount(
     alice.address,
-    998332111
+    337755
   ); // get SWC address by static call
   userAccountContract = (await ethers.getContractAt(
     "TestAccount",
@@ -139,7 +139,7 @@ async function deployAccount() {
   const testInitCode = getAccountInitCode(
     alice.address,
     accountFactory,
-    998332111
+    337755
   );
   const deployAccountUserOp = await fillAndSign(
     {
@@ -217,9 +217,7 @@ async function confirmReocovery() {
   console.log("Change CA wallet owner from Alice to Bob ... \n");
   await recoveryToken
     .connect(guardian1)
-    .confirmRecovery(bob.address, {
-      gasPrice: 45000000000,
-    })
+    .confirmRecovery(bob.address)
     .then(async (tx) => {
       console.log("guardian 1 confirmed recovery...");
       await tx.wait();
@@ -230,9 +228,7 @@ async function confirmReocovery() {
 
   await recoveryToken
     .connect(guardian2)
-    .confirmRecovery(bob.address, {
-      gasPrice: 45000000000,
-    })
+    .confirmRecovery(bob.address, {})
     .then(async (tx) => {
       console.log("guardian 2 confirmed recovery...");
       await tx.wait();
@@ -242,9 +238,7 @@ async function confirmReocovery() {
     });
   await recoveryToken
     .connect(guardian3)
-    .confirmRecovery(bob.address, {
-      gasPrice: 45000000000,
-    })
+    .confirmRecovery(bob.address, {})
     .then(async (tx) => {
       console.log("guardian 3 confirmed recovery...");
       await tx.wait();
@@ -318,9 +312,7 @@ async function addTempOwner(owner: Wallet, temporaryOwner: Wallet) {
       now - 2000,
       now + 10000000,
       targetMethods,
-      {
-        gasPrice: 45000000000,
-      }
+      {}
     );
   await tx.wait();
   console.log(`Added ${temporaryOwner.address}\ntx hash is:`, tx.hash);
@@ -346,7 +338,7 @@ async function sendCountTx(TemporaryOwner: Wallet) {
   console.log(
     `sender: ${successOp.sender}, signer: ${TemporaryOwner.address} (🤴)`
   );
-  await sendUserOperation(successOp);
+  //await sendUserOperation(successOp);
   await entryPoint
     .handleOps([successOp], alice.address)
     .then(async (tx) => {
@@ -381,15 +373,11 @@ load().then(async () => {
       console.log("\n");
       console.log("        [Recover Wallet]        \n");
       const oldOwnerAddress = await userAccountContract.owner();
-      await userAccountContract
-        .recoveryWallet(bob.address, {
-          gasPrice: 45000000000,
-        })
-        .then(async (tx) => {
-          console.log("Send transaction for recovery...");
-          console.log("tx hash: ", tx.hash);
-          await tx.wait();
-        });
+      await userAccountContract.recoveryWallet(bob.address).then(async (tx) => {
+        console.log("Send transaction for recovery...");
+        console.log("tx hash: ", tx.hash);
+        await tx.wait();
+      });
       console.log("\n ✨[Wallet owner changed]✨ \n");
       console.log(`${oldOwnerAddress}(🤴) -> ${bob.address}(🙎)`);
 
