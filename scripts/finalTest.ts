@@ -338,6 +338,8 @@ async function sendCountTx(TemporaryOwner: Wallet) {
   console.log(
     `sender: ${successOp.sender}, signer: ${TemporaryOwner.address} (🤴)`
   );
+
+  const beforeCounter = await counter.counters(userAccountContractAddr);
   //await sendUserOperation(successOp);
   await entryPoint
     .handleOps([successOp], alice.address)
@@ -348,6 +350,8 @@ async function sendCountTx(TemporaryOwner: Wallet) {
     .catch((e) => {
       console.log(e);
     });
+  const afterCounter = await counter.counters(userAccountContractAddr);
+  console.log(`Counter value changed: ${beforeCounter} -> ${afterCounter}\n`);
 }
 
 load().then(async () => {
