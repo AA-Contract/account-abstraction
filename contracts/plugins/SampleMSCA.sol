@@ -22,11 +22,26 @@ contract SampleMSCA is
     using ECDSA for bytes32;
     using UserOperationLib for UserOperation;
 
+    event MSCAInitialized(IEntryPoint indexed entryPoint, address indexed owner);
+
+    struct PluginUninstallInfo {
+        bytes manifestHash;
+        address[] dependencies;
+    }
+
+    struct PluginExecuteValidation {
+        bytes4[] permittedExecutionSelectors;
+        ManifestExternalCallPermission[] permittedExternalCalls;
+    }
+
+    mapping (address plugin => PluginUninstallInfo) private _pluginUninstallInfo;
+    mapping (address plugin => PluginExecuteValidation) private _pluginExecuteValidation;
+
     address public owner;
     IEntryPoint private immutable _entryPoint;
     bytes4 constant public PLUGIN_INTERFACE_ID = 0x848b838e;
-
-    event MSCAInitialized(IEntryPoint indexed entryPoint, address indexed owner);
+    address[] public installedPlugins;
+    
 
     modifier onlyOwner() {
         _onlyOwner();
@@ -88,7 +103,7 @@ contract SampleMSCA is
     function installPlugin(address plugin, bytes32 manifestHash, bytes calldata installData, address[] calldata dependencies) external {
         
         // Plugin Interface Check
-        if(!ERC165Checker.supportsERC165InterfaceUnchecked(plugin, 0x848b838e)) {
+        if(!ERC165Checker.supportsERC165InterfaceUnchecked(plugin, PLUGIN_INTERFACE_ID)) {
             revert();
         }
 
@@ -96,21 +111,43 @@ contract SampleMSCA is
         bytes memory encodedParams = abi.encodeCall(IPlugin.pluginManifest, ());
         bool success;
         uint256 returnSize;
-        bytes memory returnValue;
+        PluginManifest memory manifest;
 
         assembly {
             success := staticcall(30000, plugin, add(encodedParams, 0x20), mload(encodedParams), 0x00, 0x20)
             returnSize := returndatasize()
-            returnValue := mload(0x00)
+            manifest := mload(0x00)
         }
 
         if (!success || returnSize < 0x20) {
             revert();
         } else {
-            if (keccak256(returnValue) != manifestHash) {
+            if (keccak256(abi.encode(mainfest)) != manifestHash) {
                 revert();
             }
         }
+
+        // Dependency Check
+        // @TODO Check for already installed dependencies
+        if (dependencies.length != manifest.dependencyInterfaceIds.length) {
+            revert();
+        }
+        for(uint256 i = 0; i < manifest.dependencyInterfaceIds.length;) {
+            if(ERC165Checker.supportsERC165InterfaceUnchecked(dependencies[i], manifest.dependencyInterfaceIds[i])) {
+                revert();
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        _pluginUninstallInfo[plugin] = PluginUninstallInfo(manifestHash, dependencies);
+        _pluginExecuteValidation[plugin] = PluginExecution(manifest.permittedExecutionSelectors, manifest.permittedExternalCalls);
+        
+
+        installedPlugins.push(plugin);
+
+        IPlugin(plugin).onInstall(installData);
+
 
     }
 
@@ -130,7 +167,7 @@ contract SampleMSCA is
     */
 
     function execute(address target, uint256 value, bytes calldata data, address validationPlugin, uint8 validationFunctionId) external payable {
-        if(ERC165Checker.supportsERC165InterfaceUnchecked(target, 0x848b838e)) {
+        if(ERC165Checker.supportsERC165InterfaceUnchecked(target, PLUGIN_INTERFACE_ID)) {
             revert();
         }
 
@@ -139,7 +176,7 @@ contract SampleMSCA is
 
     function executeBatch(Execution[] calldata executions, address validationPlugin, uint8 validationFunctionId) external payable {
         for(uint256 i = 0; i < executions.length;) {
-            if(ERC165Checker.supportsERC165InterfaceUnchecked(executions[i].target, 0x848b838e)) {
+            if(ERC165Checker.supportsERC165InterfaceUnchecked(executions[i].target, PLUGIN_INTERFACE_ID)) {
                 revert();
             }
             _call(executions[i].target, executions[i].value, executions[i].data);
@@ -155,7 +192,9 @@ contract SampleMSCA is
     }
 
     function executeFromPluginExternal(address target, uint256 value, bytes calldata data) external payable {
-
+        if(ERC165Checker.supportsERC165InterfaceUnchecked(target, PLUGIN_INTERFACE_ID)) {
+            revert();
+        }
     }
 
 
